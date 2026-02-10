@@ -5,7 +5,7 @@ import { ROLES } from "@/lib/constants";
 
 // GET /api/sessions/[id] - Get single session
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   props: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -79,7 +79,7 @@ export async function GET(
 
 // DELETE /api/sessions/[id] - Cancel session (admin only)
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   props: { params: Promise<{ id: string }> }
 ) {
   try {

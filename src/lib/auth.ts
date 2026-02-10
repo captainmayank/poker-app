@@ -2,7 +2,6 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "./prisma";
-import { ROLES } from "./constants";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
