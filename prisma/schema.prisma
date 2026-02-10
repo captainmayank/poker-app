@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  role         String   // "player" or "admin"
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdSessions     Session[]       @relation("SessionCreator")
+  buyIns              BuyIn[]         @relation("PlayerBuyIns")
+  approvedBuyIns      BuyIn[]         @relation("BuyInApprover")
+  sessionResults      SessionResult[]
+  settlements         Settlement[]    @relation("PlayerSettlements")
+  recordedSettlements Settlement[]    @relation("SettlementRecorder")
+
+  @@map("Users")
+}
+
+model Session {
+  id          Int       @id @default(autoincrement())
+  sessionName String    @map("session_name")
+  sessionDate DateTime  @map("session_date") @db.Date
+  startTime   DateTime  @map("start_time")
+  endTime     DateTime? @map("end_time")
+  status      String    // "active", "completed", "cancelled"
+  createdById Int       @map("created_by")
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  creator        User            @relation("SessionCreator", fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  buyIns         BuyIn[]
+  sessionResults SessionResult[]
+
+  @@index([status, sessionDate], name: "IX_Sessions_Status_Date")
+  @@map("Sessions")
+}
+
+model BuyIn {
+  id              Int       @id @default(autoincrement())
+  sessionId       Int       @map("session_id")
+  playerId        Int       @map("player_id")
+  amount          Decimal   @db.Decimal(10, 2)
+  requestStatus   String    @map("request_status") // "pending", "approved", "rejected"
+  requestedAt     DateTime  @default(now()) @map("requested_at")
+  approvedById    Int?      @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  rejectionReason String?   @map("rejection_reason")
+
+  // Relations
+  session  Session @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  player   User    @relation("PlayerBuyIns", fields: [playerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approver User?   @relation("BuyInApprover", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([sessionId], name: "IX_BuyIns_Session")
+  @@index([playerId], name: "IX_BuyIns_Player")
+  @@index([requestStatus], name: "IX_BuyIns_Status")
+  @@map("BuyIns")
+}
+
+model SessionResult {
+  id          Int      @id @default(autoincrement())
+  sessionId   Int      @map("session_id")
+  playerId    Int      @map("player_id")
+  totalBuyIn  Decimal  @default(0) @map("total_buy_in") @db.Decimal(10, 2)
+  finalAmount Decimal  @default(0) @map("final_amount") @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  player  User    @relation(fields: [playerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([sessionId, playerId])
+  @@index([playerId], name: "IX_SessionResults_Player")
+  @@map("SessionResults")
+}
+
+model Settlement {
+  id               Int      @id @default(autoincrement())
+  playerId         Int      @map("player_id")
+  settlementAmount Decimal  @map("settlement_amount") @db.Decimal(10, 2)
+  settlementType   String   @map("settlement_type") // "payment" or "receipt"
+  settlementDate   DateTime @map("settlement_date") @db.Date
+  referenceNote    String?  @map("reference_note")
+  settledById      Int      @map("settled_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  player    User @relation("PlayerSettlements", fields: [playerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  settledBy User @relation("SettlementRecorder", fields: [settledById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([playerId], name: "IX_Settlements_Player")
+  @@index([settlementDate], name: "IX_Settlements_Date")
+  @@map("Settlements")
+}
