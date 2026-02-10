@@ -6,7 +6,7 @@ import { ROLES } from "@/lib/constants";
 // GET /api/sessions/[id] - Get single session
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -15,6 +15,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const params = await props.params;
     const sessionId = parseInt(params.id);
 
     const sessionData = await prisma.session.findUnique({
@@ -79,7 +80,7 @@ export async function GET(
 // DELETE /api/sessions/[id] - Cancel session (admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -88,6 +89,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const params = await props.params;
     const sessionId = parseInt(params.id);
 
     await prisma.session.update({
