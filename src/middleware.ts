@@ -1,26 +1,18 @@
-import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { ROLES } from "./lib/constants";
+import type { NextRequest } from "next/server";
 
-export default auth((req) => {
-  const token = req.auth;
-  const path = req.nextUrl.pathname;
+export function middleware(request: NextRequest) {
+  // Check if user has a session cookie
+  const sessionCookie = request.cookies.get('authjs.session-token') || request.cookies.get('__Secure-authjs.session-token');
 
-  // Check if user is authenticated
-  if (!token) {
-    return NextResponse.redirect(new URL("/login", req.url));
+  // If no session, redirect to login
+  if (!sessionCookie) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Admin-only routes
-  const adminRoutes = ["/players", "/sessions/new"];
-  const isAdminRoute = adminRoutes.some((route) => path.startsWith(route));
-
-  if (isAdminRoute && token?.user?.role !== ROLES.ADMIN) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
-
+  // Allow the request to continue
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
