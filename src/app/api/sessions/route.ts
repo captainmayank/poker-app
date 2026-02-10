@@ -109,11 +109,15 @@ export async function POST(request: NextRequest) {
 
     const { sessionName, sessionDate, startTime, notes } = validation.data;
 
+    // Combine date and time into proper Date objects
+    const sessionDateObj = new Date(sessionDate);
+    const startTimeObj = new Date(`${sessionDate}T${startTime}`);
+
     const newSession = await prisma.session.create({
       data: {
         sessionName,
-        sessionDate: new Date(sessionDate),
-        startTime: new Date(startTime),
+        sessionDate: sessionDateObj,
+        startTime: startTimeObj,
         status: SESSION_STATUS.ACTIVE,
         notes,
         createdById: parseInt(session.user.id),

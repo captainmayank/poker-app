@@ -17,8 +17,8 @@ export const createUserSchema = z.object({
 // Session schemas
 export const createSessionSchema = z.object({
   sessionName: z.string().min(1).max(100),
-  sessionDate: z.coerce.date(),
-  startTime: z.coerce.date(),
+  sessionDate: z.string().min(1, "Session date is required"),
+  startTime: z.string().min(1, "Start time is required"),
   notes: z.string().optional(),
 });
 
