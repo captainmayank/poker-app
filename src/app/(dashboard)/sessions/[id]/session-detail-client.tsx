@@ -1,0 +1,559 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, Plus, DollarSign, Check, X, TrendingUp, TrendingDown } from "lucide-react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+
+interface BuyIn {
+  id: number;
+  amount: string;
+  requestStatus: string;
+  requestedAt: string;
+  approvedAt: string | null;
+  approvedBy: number | null;
+  rejectionReason: string | null;
+  player: {
+    id: number;
+    username: string;
+    fullName: string;
+  };
+  approver: {
+    fullName: string;
+  } | null;
+}
+
+interface SessionResult {
+  playerId: number;
+  totalBuyIn: string;
+  finalAmount: string;
+  profitLoss?: number;
+}
+
+interface Session {
+  id: number;
+  sessionName: string;
+  sessionDate: string;
+  startTime: string;
+  endTime: string | null;
+  status: string;
+  notes: string | null;
+  creator: {
+    fullName: string;
+  };
+}
+
+interface SessionDetailClientProps {
+  sessionId: string;
+  isAdmin: boolean;
+  userId: string;
+}
+
+export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetailClientProps) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [buyIns, setBuyIns] = useState<BuyIn[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [buyInDialogOpen, setBuyInDialogOpen] = useState(false);
+  const [cashOutDialogOpen, setCashOutDialogOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [buyInAmount, setBuyInAmount] = useState("");
+  const [cashOutAmount, setCashOutAmount] = useState("");
+  const [myResult, setMyResult] = useState<SessionResult | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchSessionData();
+    fetchBuyIns();
+    if (!isAdmin) {
+      fetchMyResult();
+    }
+  }, [sessionId]);
+
+  const fetchSessionData = async () => {
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSession(data);
+      }
+    } catch (error) {
+      console.error("Error fetching session:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchBuyIns = async () => {
+    try {
+      const response = await fetch(`/api/buy-ins?sessionId=${sessionId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setBuyIns(data);
+      }
+    } catch (error) {
+      console.error("Error fetching buy-ins:", error);
+    }
+  };
+
+  const fetchMyResult = async () => {
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}/cash-out`);
+      if (response.ok) {
+        const data = await response.json();
+        setMyResult(data);
+      }
+    } catch (error) {
+      // No result yet, that's okay
+    }
+  };
+
+  const handleRequestBuyIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const response = await fetch("/api/buy-ins", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId: parseInt(sessionId),
+          amount: parseFloat(buyInAmount),
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Buy-in request submitted",
+        });
+        setBuyInDialogOpen(false);
+        setBuyInAmount("");
+        fetchBuyIns();
+      } else {
+        const error = await response.json();
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.error || "Failed to request buy-in",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to request buy-in",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCashOut = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}/cash-out`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          finalAmount: parseFloat(cashOutAmount),
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast({
+          title: "Success",
+          description: `Cashed out ₹${data.finalAmount}. ${
+            data.profitLoss >= 0
+              ? `Profit: ₹${data.profitLoss}`
+              : `Loss: ₹${Math.abs(data.profitLoss)}`
+          }`,
+        });
+        setCashOutDialogOpen(false);
+        setCashOutAmount("");
+        fetchMyResult();
+      } else {
+        const error = await response.json();
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.error || "Failed to cash out",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to cash out",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleApproveBuyIn = async (buyInId: number, amount?: number) => {
+    try {
+      const response = await fetch(`/api/buy-ins/${buyInId}/approve`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ amount }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Buy-in approved",
+        });
+        fetchBuyIns();
+      } else {
+        const error = await response.json();
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.error || "Failed to approve buy-in",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to approve buy-in",
+      });
+    }
+  };
+
+  const handleRejectBuyIn = async (buyInId: number, reason?: string) => {
+    try {
+      const response = await fetch(`/api/buy-ins/${buyInId}/reject`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ rejectionReason: reason }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Buy-in rejected",
+        });
+        fetchBuyIns();
+      } else {
+        const error = await response.json();
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.error || "Failed to reject buy-in",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to reject buy-in",
+      });
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    const colors = {
+      PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+      APPROVED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+      REJECTED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+    };
+    return (
+      <Badge className={colors[status as keyof typeof colors] || colors.PENDING}>
+        {status}
+      </Badge>
+    );
+  };
+
+  const myBuyIns = buyIns.filter((b) => b.player.id === parseInt(userId));
+  const myApprovedBuyIns = myBuyIns.filter((b) => b.requestStatus === "APPROVED");
+  const myTotalBuyIn = myApprovedBuyIns.reduce((sum, b) => sum + parseFloat(b.amount), 0);
+
+  if (loading) {
+    return <div className="p-8">Loading...</div>;
+  }
+
+  if (!session) {
+    return <div className="p-8">Session not found</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/sessions">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-3xl font-bold">{session.sessionName}</h1>
+          <p className="text-muted-foreground">
+            {formatDate(session.sessionDate)} at {formatTime(session.startTime)}
+          </p>
+        </div>
+      </div>
+
+      {/* My Stats (for players) */}
+      {!isAdmin && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Buy-In</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₹{myTotalBuyIn.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground">
+                {myApprovedBuyIns.length} approved buy-in(s)
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Final Stack</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {myResult ? `₹${parseFloat(myResult.finalAmount).toFixed(2)}` : "-"}
+              </div>
+              <p className="text-xs text-muted-foreground">Current chip count</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Profit/Loss</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {myResult && myResult.profitLoss !== undefined ? (
+                <>
+                  <div
+                    className={`text-2xl font-bold flex items-center gap-1 ${
+                      myResult.profitLoss >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {myResult.profitLoss >= 0 ? (
+                      <TrendingUp className="h-5 w-5" />
+                    ) : (
+                      <TrendingDown className="h-5 w-5" />
+                    )}
+                    ₹{Math.abs(myResult.profitLoss).toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {myResult.profitLoss >= 0 ? "Profit" : "Loss"}
+                  </p>
+                </>
+              ) : (
+                <div className="text-2xl font-bold">-</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Actions */}
+      {!isAdmin && session.status === "ACTIVE" && (
+        <div className="flex gap-2">
+          <Dialog open={buyInDialogOpen} onOpenChange={setBuyInDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Request Buy-In
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Request Buy-In</DialogTitle>
+                <DialogDescription>
+                  Enter the amount you want to buy in for
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleRequestBuyIn}>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="amount">Amount (₹) *</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="1000.00"
+                      value={buyInAmount}
+                      onChange={(e) => setBuyInAmount(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setBuyInDialogOpen(false)}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Submitting..." : "Submit Request"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={cashOutDialogOpen} onOpenChange={setCashOutDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <DollarSign className="mr-2 h-4 w-4" />
+                Cash Out
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Cash Out</DialogTitle>
+                <DialogDescription>
+                  Enter your final chip count to cash out
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCashOut}>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="finalAmount">Final Stack (₹) *</Label>
+                    <Input
+                      id="finalAmount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="1500.00"
+                      value={cashOutAmount}
+                      onChange={(e) => setCashOutAmount(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Your total buy-in: ₹{myTotalBuyIn.toFixed(2)}
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCashOutDialogOpen(false)}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Processing..." : "Cash Out"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
+
+      {/* Buy-Ins List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Buy-Ins</CardTitle>
+          <CardDescription>
+            {isAdmin ? "All buy-in requests for this session" : "Your buy-in history"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {(isAdmin ? buyIns : myBuyIns).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No buy-ins yet</p>
+          ) : (
+            <div className="space-y-4">
+              {(isAdmin ? buyIns : myBuyIns).map((buyIn) => (
+                <div
+                  key={buyIn.id}
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                >
+                  <div>
+                    <div className="font-semibold">
+                      {buyIn.player.fullName} (@{buyIn.player.username})
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Amount: ₹{parseFloat(buyIn.amount).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Requested: {formatDate(buyIn.requestedAt)} at{" "}
+                      {formatTime(buyIn.requestedAt)}
+                    </div>
+                    {buyIn.approvedAt && (
+                      <div className="text-xs text-muted-foreground">
+                        Approved by: {buyIn.approver?.fullName}
+                      </div>
+                    )}
+                    {buyIn.rejectionReason && (
+                      <div className="text-xs text-red-600">
+                        Reason: {buyIn.rejectionReason}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(buyIn.requestStatus)}
+                    {isAdmin && buyIn.requestStatus === "PENDING" && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleApproveBuyIn(buyIn.id)}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRejectBuyIn(buyIn.id)}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

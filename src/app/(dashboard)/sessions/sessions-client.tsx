@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, Plus } from "lucide-react";
+import Link from "next/link";
 
 interface Session {
   id: number;
@@ -232,27 +233,26 @@ export function SessionsClient({ isAdmin }: SessionsClientProps) {
           ) : (
             <div className="space-y-4">
               {sessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="mt-1">
-                      <Calendar className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{session.sessionName}</h3>
-                      <div className="text-sm text-muted-foreground space-y-1 mt-1">
-                        <p>{formatDate(session.sessionDate)} at {formatTime(session.startTime)}</p>
-                        {session.endTime && <p>Ended at {formatTime(session.endTime)}</p>}
-                        {session.notes && <p className="text-xs italic">{session.notes}</p>}
+                <Link key={session.id} href={`/sessions/${session.id}`}>
+                  <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors cursor-pointer">
+                    <div className="flex items-start gap-4">
+                      <div className="mt-1">
+                        <Calendar className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">{session.sessionName}</h3>
+                        <div className="text-sm text-muted-foreground space-y-1 mt-1">
+                          <p>{formatDate(session.sessionDate)} at {formatTime(session.startTime)}</p>
+                          {session.endTime && <p>Ended at {formatTime(session.endTime)}</p>}
+                          {session.notes && <p className="text-xs italic">{session.notes}</p>}
+                        </div>
                       </div>
                     </div>
+                    <div>
+                      {getStatusBadge(session.status)}
+                    </div>
                   </div>
-                  <div>
-                    {getStatusBadge(session.status)}
-                  </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
