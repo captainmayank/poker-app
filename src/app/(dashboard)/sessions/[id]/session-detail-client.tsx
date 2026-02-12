@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, DollarSign, Check, X, TrendingUp, TrendingDown, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, Check, X, TrendingUp, TrendingDown, CheckCircle2, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -363,7 +363,7 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
   };
 
   const handleEndSession = async () => {
-    if (!confirm("Are you sure you want to end this session? This action cannot be undone.")) {
+    if (!confirm("Are you sure you want to end this session? All players must have approved cash-outs and the books must balance.")) {
       return;
     }
 
@@ -395,6 +395,43 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
         variant: "destructive",
         title: "Error",
         description: "Failed to end session",
+      });
+    }
+  };
+
+  const handleReopenSession = async () => {
+    if (!confirm("Are you sure you want to reopen this session? This will allow players to make changes.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "active" }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Session reopened successfully",
+        });
+        fetchSessionData();
+      } else {
+        const error = await response.json();
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.error || "Failed to reopen session",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to reopen session",
       });
     }
   };
@@ -455,11 +492,21 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
             </p>
           </div>
         </div>
-        {isAdmin && session.status === "active" && (
-          <Button variant="outline" onClick={handleEndSession}>
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            End Session
-          </Button>
+        {isAdmin && (
+          <>
+            {session.status === "active" && (
+              <Button variant="outline" onClick={handleEndSession}>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                End Session
+              </Button>
+            )}
+            {(session.status === "completed" || session.status === "cancelled") && (
+              <Button variant="outline" onClick={handleReopenSession}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Reopen Session
+              </Button>
+            )}
+          </>
         )}
       </div>
 

@@ -101,11 +101,48 @@ export async function PATCH(
       );
     }
 
-    const updateData: { status: string; endTime?: Date } = { status };
+    // Validate that all profit/loss sums to zero before completing session
+    if (status === "completed") {
+      const approvedResults = await prisma.sessionResult.findMany({
+        where: {
+          sessionId,
+          cashOutStatus: "approved",
+        },
+      });
+
+      if (approvedResults.length === 0) {
+        return NextResponse.json(
+          { error: "Cannot end session: No approved cash-outs found. All players must cash out before ending the session." },
+          { status: 400 }
+        );
+      }
+
+      // Calculate total profit/loss
+      const totalProfitLoss = approvedResults.reduce((sum, result) => {
+        const profitLoss = Number(result.finalAmount) - Number(result.totalBuyIn);
+        return sum + profitLoss;
+      }, 0);
+
+      // Check if books balance (allow small rounding error of 0.01)
+      if (Math.abs(totalProfitLoss) > 0.01) {
+        return NextResponse.json(
+          {
+            error: `Cannot end session: Books don't balance. Total profit/loss is ₹${totalProfitLoss.toFixed(2)}. The sum must be zero (all wins equal all losses).`,
+            totalProfitLoss: totalProfitLoss.toFixed(2)
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const updateData: { status: string; endTime?: Date | null } = { status };
 
     // Set endTime when completing or cancelling a session
     if (status === "completed" || status === "cancelled") {
       updateData.endTime = new Date();
+    } else if (status === "active") {
+      // Clear endTime when reopening a session
+      updateData.endTime = null;
     }
 
     const updatedSession = await prisma.session.update({
