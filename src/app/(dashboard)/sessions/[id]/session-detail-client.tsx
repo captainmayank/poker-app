@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, DollarSign, Check, X, TrendingUp, TrendingDown, CheckCircle2, RotateCcw } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, Check, X, TrendingUp, TrendingDown, CheckCircle2, RotateCcw, Pencil } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -75,9 +75,15 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
   const [loading, setLoading] = useState(true);
   const [buyInDialogOpen, setBuyInDialogOpen] = useState(false);
   const [cashOutDialogOpen, setCashOutDialogOpen] = useState(false);
+  const [editBuyInDialogOpen, setEditBuyInDialogOpen] = useState(false);
+  const [editCashOutDialogOpen, setEditCashOutDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [buyInAmount, setBuyInAmount] = useState("");
   const [cashOutAmount, setCashOutAmount] = useState("");
+  const [editingBuyIn, setEditingBuyIn] = useState<BuyIn | null>(null);
+  const [editingCashOut, setEditingCashOut] = useState<SessionResult | null>(null);
+  const [editBuyInAmount, setEditBuyInAmount] = useState("");
+  const [editCashOutAmount, setEditCashOutAmount] = useState("");
   const [myResult, setMyResult] = useState<SessionResult | null>(null);
   const { toast } = useToast();
 
@@ -246,6 +252,9 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
           description: "Buy-in approved",
         });
         fetchBuyIns();
+        if (isAdmin) {
+          fetchCashOutRequests();
+        }
       } else {
         const error = await response.json();
         toast({
@@ -260,6 +269,27 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
         title: "Error",
         description: "Failed to approve buy-in",
       });
+    }
+  };
+
+  const handleEditBuyIn = (buyIn: BuyIn) => {
+    setEditingBuyIn(buyIn);
+    setEditBuyInAmount(buyIn.amount);
+    setEditBuyInDialogOpen(true);
+  };
+
+  const handleSaveEditedBuyIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBuyIn) return;
+
+    setSubmitting(true);
+    try {
+      await handleApproveBuyIn(editingBuyIn.id, parseFloat(editBuyInAmount));
+      setEditBuyInDialogOpen(false);
+      setEditingBuyIn(null);
+      setEditBuyInAmount("");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -296,14 +326,14 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
     }
   };
 
-  const handleApproveCashOut = async (playerId: number) => {
+  const handleApproveCashOut = async (playerId: number, finalAmount?: number) => {
     try {
       const response = await fetch(`/api/sessions/${sessionId}/cash-out/approve`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ playerId }),
+        body: JSON.stringify({ playerId, finalAmount }),
       });
 
       if (response.ok) {
@@ -326,6 +356,27 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
         title: "Error",
         description: "Failed to approve cash-out",
       });
+    }
+  };
+
+  const handleEditCashOut = (cashOut: SessionResult) => {
+    setEditingCashOut(cashOut);
+    setEditCashOutAmount(cashOut.finalAmount.toString());
+    setEditCashOutDialogOpen(true);
+  };
+
+  const handleSaveEditedCashOut = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCashOut) return;
+
+    setSubmitting(true);
+    try {
+      await handleApproveCashOut(editingCashOut.playerId, parseFloat(editCashOutAmount));
+      setEditCashOutDialogOpen(false);
+      setEditingCashOut(null);
+      setEditCashOutAmount("");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -676,6 +727,103 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
         </div>
       )}
 
+      {/* Edit Buy-In Dialog (Admin Only) */}
+      <Dialog open={editBuyInDialogOpen} onOpenChange={setEditBuyInDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Buy-In Amount</DialogTitle>
+            <DialogDescription>
+              Adjust the buy-in amount for {editingBuyIn?.player.fullName}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveEditedBuyIn}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="editBuyInAmount">Amount (₹) *</Label>
+                <Input
+                  id="editBuyInAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="1000.00"
+                  value={editBuyInAmount}
+                  onChange={(e) => setEditBuyInAmount(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Original request: ₹{editingBuyIn ? parseFloat(editingBuyIn.amount).toFixed(2) : "0.00"}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditBuyInDialogOpen(false);
+                  setEditingBuyIn(null);
+                }}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Approving..." : "Approve with New Amount"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Cash-Out Dialog (Admin Only) */}
+      <Dialog open={editCashOutDialogOpen} onOpenChange={setEditCashOutDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Cash-Out Amount</DialogTitle>
+            <DialogDescription>
+              Adjust the final stack amount for {editingCashOut?.player?.fullName}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveEditedCashOut}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="editCashOutAmount">Final Stack (₹) *</Label>
+                <Input
+                  id="editCashOutAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="1500.00"
+                  value={editCashOutAmount}
+                  onChange={(e) => setEditCashOutAmount(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>Original amount: ₹{editingCashOut ? parseFloat(editingCashOut.finalAmount.toString()).toFixed(2) : "0.00"}</p>
+                <p>Total buy-in: ₹{editingCashOut ? parseFloat(editingCashOut.totalBuyIn.toString()).toFixed(2) : "0.00"}</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditCashOutDialogOpen(false);
+                  setEditingCashOut(null);
+                }}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Approving..." : "Approve with New Amount"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Buy-Ins List */}
       <Card>
         <CardHeader>
@@ -720,6 +868,14 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
                     {getStatusBadge(buyIn.requestStatus)}
                     {isAdmin && buyIn.requestStatus.toLowerCase() === "pending" && (
                       <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEditBuyIn(buyIn)}
+                        >
+                          <Pencil className="h-4 w-4 mr-1" />
+                          Edit & Approve
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -800,6 +956,14 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
                       {getStatusBadge(result.cashOutStatus)}
                       {result.cashOutStatus.toLowerCase() === "pending" && (
                         <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditCashOut(result)}
+                          >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            Edit & Approve
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"

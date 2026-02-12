@@ -23,7 +23,7 @@ export async function PATCH(
     const sessionId = parseInt(params.id);
 
     const body = await request.json();
-    const { playerId } = body;
+    const { playerId, finalAmount } = body; // finalAmount is optional for editing
 
     if (!playerId) {
       return NextResponse.json(
@@ -64,7 +64,19 @@ export async function PATCH(
       );
     }
 
-    // Approve cash-out
+    // Approve cash-out (with optional amount adjustment)
+    const updateData: any = {
+      cashOutStatus: "approved",
+      approvedById: parseInt(session.user.id),
+      approvedAt: new Date(),
+      rejectionNote: null,
+    };
+
+    // If finalAmount is provided, update it
+    if (finalAmount !== undefined && finalAmount !== null) {
+      updateData.finalAmount = finalAmount;
+    }
+
     const updatedResult = await prisma.sessionResult.update({
       where: {
         sessionId_playerId: {
@@ -72,12 +84,7 @@ export async function PATCH(
           playerId: parseInt(playerId),
         },
       },
-      data: {
-        cashOutStatus: "approved",
-        approvedById: parseInt(session.user.id),
-        approvedAt: new Date(),
-        rejectionNote: null,
-      },
+      data: updateData,
       include: {
         player: {
           select: {
