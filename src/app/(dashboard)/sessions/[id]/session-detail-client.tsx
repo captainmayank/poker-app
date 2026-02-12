@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, DollarSign, Check, X, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, Plus, DollarSign, Check, X, TrendingUp, TrendingDown, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -362,6 +362,43 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
     }
   };
 
+  const handleEndSession = async () => {
+    if (!confirm("Are you sure you want to end this session? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "completed" }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Session ended successfully",
+        });
+        fetchSessionData();
+      } else {
+        const error = await response.json();
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.error || "Failed to end session",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to end session",
+      });
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-IN", {
       year: "numeric",
@@ -404,18 +441,26 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/sessions">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold">{session.sessionName}</h1>
-          <p className="text-muted-foreground">
-            {formatDate(session.sessionDate)} at {formatTime(session.startTime)}
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/sessions">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">{session.sessionName}</h1>
+            <p className="text-muted-foreground">
+              {formatDate(session.sessionDate)} at {formatTime(session.startTime)}
+            </p>
+          </div>
         </div>
+        {isAdmin && session.status === "active" && (
+          <Button variant="outline" onClick={handleEndSession}>
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            End Session
+          </Button>
+        )}
       </div>
 
       {/* My Stats */}
