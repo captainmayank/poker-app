@@ -33,7 +33,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Buy-in not found" }, { status: 404 });
     }
 
-    if (buyIn.requestStatus !== "PENDING") {
+    if (buyIn.requestStatus.toLowerCase() !== "pending") {
       return NextResponse.json(
         { error: "Buy-in is not pending" },
         { status: 400 }
@@ -44,7 +44,7 @@ export async function PATCH(
     const updatedBuyIn = await prisma.buyIn.update({
       where: { id: buyInId },
       data: {
-        requestStatus: "APPROVED",
+        requestStatus: "approved",
         approvedById: parseInt(session.user.id),
         approvedAt: new Date(),
         amount: amount ? amount : buyIn.amount, // Use adjusted amount if provided

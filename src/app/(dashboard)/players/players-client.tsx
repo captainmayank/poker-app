@@ -48,7 +48,7 @@ export function PlayersClient({ isAdmin }: PlayersClientProps) {
     email: "",
     fullName: "",
     password: "",
-    role: "PLAYER",
+    role: "player",
   });
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export function PlayersClient({ isAdmin }: PlayersClientProps) {
           email: "",
           fullName: "",
           password: "",
-          role: "PLAYER",
+          role: "player",
         });
         fetchPlayers();
       } else {
@@ -252,8 +252,8 @@ export function PlayersClient({ isAdmin }: PlayersClientProps) {
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="PLAYER">Player</SelectItem>
-                        <SelectItem value="ADMIN">Admin</SelectItem>
+                        <SelectItem value="player">Player</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

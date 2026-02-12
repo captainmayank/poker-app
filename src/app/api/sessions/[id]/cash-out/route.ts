@@ -41,7 +41,7 @@ export async function POST(
       where: {
         sessionId,
         playerId: parseInt(session.user.id),
-        requestStatus: "APPROVED",
+        requestStatus: "approved",
       },
     });
 
@@ -52,7 +52,7 @@ export async function POST(
       );
     }
 
-    // Update or create session result with final amount
+    // Update or create session result with final amount (pending approval)
     const result = await prisma.sessionResult.upsert({
       where: {
         sessionId_playerId: {
@@ -65,9 +65,14 @@ export async function POST(
         playerId: parseInt(session.user.id),
         totalBuyIn: buyIns.reduce((sum, b) => sum + Number(b.amount), 0),
         finalAmount,
+        cashOutStatus: "pending",
       },
       update: {
         finalAmount,
+        cashOutStatus: "pending",
+        approvedById: null,
+        approvedAt: null,
+        rejectionNote: null,
       },
     });
 

@@ -3,7 +3,7 @@ import { SessionDetailClient } from "./session-detail-client";
 
 export default async function SessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  const isAdmin = session?.user?.role === "ADMIN";
+  const isAdmin = session?.user?.role === "admin";
   const userId = session?.user?.id;
 
   const resolvedParams = await params;

@@ -18,12 +18,13 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  createdSessions     Session[]       @relation("SessionCreator")
-  buyIns              BuyIn[]         @relation("PlayerBuyIns")
-  approvedBuyIns      BuyIn[]         @relation("BuyInApprover")
-  sessionResults      SessionResult[]
-  settlements         Settlement[]    @relation("PlayerSettlements")
-  recordedSettlements Settlement[]    @relation("SettlementRecorder")
+  createdSessions      Session[]       @relation("SessionCreator")
+  buyIns               BuyIn[]         @relation("PlayerBuyIns")
+  approvedBuyIns       BuyIn[]         @relation("BuyInApprover")
+  sessionResults       SessionResult[] @relation("PlayerResults")
+  approvedResults      SessionResult[] @relation("ResultApprover")
+  settlements          Settlement[]    @relation("PlayerSettlements")
+  recordedSettlements  Settlement[]    @relation("SettlementRecorder")
 
   @@map("Users")
 }
@@ -72,17 +73,22 @@ model BuyIn {
 }
 
 model SessionResult {
-  id          Int      @id @default(autoincrement())
-  sessionId   Int      @map("session_id")
-  playerId    Int      @map("player_id")
-  totalBuyIn  Decimal  @default(0) @map("total_buy_in") @db.Decimal(10, 2)
-  finalAmount Decimal  @default(0) @map("final_amount") @db.Decimal(10, 2)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id             Int       @id @default(autoincrement())
+  sessionId      Int       @map("session_id")
+  playerId       Int       @map("player_id")
+  totalBuyIn     Decimal   @default(0) @map("total_buy_in") @db.Decimal(10, 2)
+  finalAmount    Decimal   @default(0) @map("final_amount") @db.Decimal(10, 2)
+  cashOutStatus  String    @default("pending") @map("cash_out_status") // "pending", "approved", "rejected"
+  approvedById   Int?      @map("approved_by")
+  approvedAt     DateTime? @map("approved_at")
+  rejectionNote  String?   @map("rejection_note")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  player  User    @relation(fields: [playerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  session  Session @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  player   User    @relation("PlayerResults", fields: [playerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approver User?   @relation("ResultApprover", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([sessionId, playerId])
   @@index([playerId], name: "IX_SessionResults_Player")

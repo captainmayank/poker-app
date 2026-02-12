@@ -30,10 +30,23 @@ interface BuyIn {
 }
 
 interface SessionResult {
+  id: number;
   playerId: number;
   totalBuyIn: string;
   finalAmount: string;
   profitLoss?: number;
+  cashOutStatus: string;
+  approvedById: number | null;
+  approvedAt: string | null;
+  rejectionNote: string | null;
+  player?: {
+    id: number;
+    username: string;
+    fullName: string;
+  };
+  approver?: {
+    fullName: string;
+  } | null;
 }
 
 interface Session {
@@ -58,6 +71,7 @@ interface SessionDetailClientProps {
 export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetailClientProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [buyIns, setBuyIns] = useState<BuyIn[]>([]);
+  const [cashOutRequests, setCashOutRequests] = useState<SessionResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [buyInDialogOpen, setBuyInDialogOpen] = useState(false);
   const [cashOutDialogOpen, setCashOutDialogOpen] = useState(false);
@@ -70,7 +84,9 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
   useEffect(() => {
     fetchSessionData();
     fetchBuyIns();
-    if (!isAdmin) {
+    if (isAdmin) {
+      fetchCashOutRequests();
+    } else {
       fetchMyResult();
     }
   }, [sessionId]);
@@ -110,6 +126,18 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
       }
     } catch (error) {
       // No result yet, that's okay
+    }
+  };
+
+  const fetchCashOutRequests = async () => {
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}/cash-outs`);
+      if (response.ok) {
+        const data = await response.json();
+        setCashOutRequests(data);
+      }
+    } catch (error) {
+      console.error("Error fetching cash-out requests:", error);
     }
   };
 
@@ -269,6 +297,72 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
     }
   };
 
+  const handleApproveCashOut = async (playerId: number) => {
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}/cash-out/approve`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ playerId }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Cash-out approved",
+        });
+        fetchCashOutRequests();
+      } else {
+        const error = await response.json();
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.error || "Failed to approve cash-out",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to approve cash-out",
+      });
+    }
+  };
+
+  const handleRejectCashOut = async (playerId: number, note?: string) => {
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}/cash-out/reject`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ playerId, rejectionNote: note }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Cash-out rejected",
+        });
+        fetchCashOutRequests();
+      } else {
+        const error = await response.json();
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.error || "Failed to reject cash-out",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to reject cash-out",
+      });
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-IN", {
       year: "numeric",
@@ -286,19 +380,19 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
 
   const getStatusBadge = (status: string) => {
     const colors = {
-      PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-      APPROVED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      REJECTED: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+      pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+      approved: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+      rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
     };
     return (
-      <Badge className={colors[status as keyof typeof colors] || colors.PENDING}>
-        {status}
+      <Badge className={colors[status.toLowerCase() as keyof typeof colors] || colors.pending}>
+        {status.toUpperCase()}
       </Badge>
     );
   };
 
   const myBuyIns = buyIns.filter((b) => b.player.id === parseInt(userId));
-  const myApprovedBuyIns = myBuyIns.filter((b) => b.requestStatus === "APPROVED");
+  const myApprovedBuyIns = myBuyIns.filter((b) => b.requestStatus.toLowerCase() === "approved");
   const myTotalBuyIn = myApprovedBuyIns.reduce((sum, b) => sum + parseFloat(b.amount), 0);
 
   if (loading) {
@@ -371,9 +465,17 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
                     )}
                     ₹{Math.abs(myResult.profitLoss).toFixed(2)}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {myResult.profitLoss >= 0 ? "Profit" : "Loss"}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-muted-foreground">
+                      {myResult.profitLoss >= 0 ? "Profit" : "Loss"}
+                    </p>
+                    {getStatusBadge(myResult.cashOutStatus)}
+                  </div>
+                  {myResult.rejectionNote && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {myResult.rejectionNote}
+                    </p>
+                  )}
                 </>
               ) : (
                 <div className="text-2xl font-bold">-</div>
@@ -384,7 +486,7 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
       )}
 
       {/* Actions */}
-      {!isAdmin && session.status === "ACTIVE" && (
+      {!isAdmin && session.status === "active" && (
         <div className="flex gap-2">
           <Dialog open={buyInDialogOpen} onOpenChange={setBuyInDialogOpen}>
             <DialogTrigger asChild>
@@ -527,7 +629,7 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
                   </div>
                   <div className="flex items-center gap-2">
                     {getStatusBadge(buyIn.requestStatus)}
-                    {isAdmin && buyIn.requestStatus === "PENDING" && (
+                    {isAdmin && buyIn.requestStatus.toLowerCase() === "pending" && (
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -554,6 +656,87 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
           )}
         </CardContent>
       </Card>
+
+      {/* Cash-Out Requests (Admin Only) */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cash-Out Requests</CardTitle>
+            <CardDescription>
+              All cash-out requests for this session
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {cashOutRequests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No cash-out requests yet</p>
+            ) : (
+              <div className="space-y-4">
+                {cashOutRequests.map((result) => (
+                  <div
+                    key={result.id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div>
+                      <div className="font-semibold">
+                        {result.player?.fullName} (@{result.player?.username})
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Total Buy-In: ₹{parseFloat(result.totalBuyIn.toString()).toFixed(2)}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Final Stack: ₹{parseFloat(result.finalAmount.toString()).toFixed(2)}
+                      </div>
+                      <div
+                        className={`text-sm font-semibold ${
+                          result.profitLoss && result.profitLoss >= 0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {result.profitLoss && result.profitLoss >= 0 ? "Profit" : "Loss"}:{" "}
+                        ₹{result.profitLoss ? Math.abs(result.profitLoss).toFixed(2) : "0.00"}
+                      </div>
+                      {result.approvedAt && result.approver && (
+                        <div className="text-xs text-muted-foreground">
+                          Approved by: {result.approver.fullName}
+                        </div>
+                      )}
+                      {result.rejectionNote && (
+                        <div className="text-xs text-red-600">
+                          Reason: {result.rejectionNote}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(result.cashOutStatus)}
+                      {result.cashOutStatus.toLowerCase() === "pending" && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleApproveCashOut(result.playerId)}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRejectCashOut(result.playerId)}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

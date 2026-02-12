@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    if (sessionData.status !== "ACTIVE") {
+    if (sessionData.status !== "active") {
       return NextResponse.json(
         { error: "Can only request buy-ins for active sessions" },
         { status: 400 }
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         sessionId,
         playerId: parseInt(session.user.id),
         amount,
-        requestStatus: "PENDING",
+        requestStatus: "pending",
       },
       include: {
         player: {

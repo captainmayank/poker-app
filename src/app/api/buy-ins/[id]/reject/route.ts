@@ -30,7 +30,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Buy-in not found" }, { status: 404 });
     }
 
-    if (buyIn.requestStatus !== "PENDING") {
+    if (buyIn.requestStatus.toLowerCase() !== "pending") {
       return NextResponse.json(
         { error: "Buy-in is not pending" },
         { status: 400 }
@@ -41,7 +41,7 @@ export async function PATCH(
     const updatedBuyIn = await prisma.buyIn.update({
       where: { id: buyInId },
       data: {
-        requestStatus: "REJECTED",
+        requestStatus: "rejected",
         rejectionReason: rejectionReason || "No reason provided",
       },
       include: {

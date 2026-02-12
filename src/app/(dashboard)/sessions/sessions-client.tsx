@@ -130,13 +130,13 @@ export function SessionsClient({ isAdmin }: SessionsClientProps) {
 
   const getStatusBadge = (status: string) => {
     const colors = {
-      ACTIVE: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-      COMPLETED: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      SETTLED: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
+      active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+      completed: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+      cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status as keyof typeof colors] || colors.ACTIVE}`}>
-        {status}
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status as keyof typeof colors] || colors.active}`}>
+        {status.toUpperCase()}
       </span>
     );
   };
