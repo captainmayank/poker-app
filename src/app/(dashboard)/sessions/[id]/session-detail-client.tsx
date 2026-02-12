@@ -84,10 +84,9 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
   useEffect(() => {
     fetchSessionData();
     fetchBuyIns();
+    fetchMyResult();
     if (isAdmin) {
       fetchCashOutRequests();
-    } else {
-      fetchMyResult();
     }
   }, [sessionId]);
 
@@ -419,9 +418,8 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
         </div>
       </div>
 
-      {/* My Stats (for players) */}
-      {!isAdmin && (
-        <div className="grid gap-4 md:grid-cols-3">
+      {/* My Stats */}
+      <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Total Buy-In</CardTitle>
@@ -483,10 +481,9 @@ export function SessionDetailClient({ sessionId, isAdmin, userId }: SessionDetai
             </CardContent>
           </Card>
         </div>
-      )}
 
       {/* Actions */}
-      {!isAdmin && session.status === "active" && (
+      {session.status === "active" && (
         <div className="flex gap-2">
           <Dialog open={buyInDialogOpen} onOpenChange={setBuyInDialogOpen}>
             <DialogTrigger asChild>
